@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基础 WebSocket 聊天室</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <h1>WebSocket 聊天室</h1>
+        <div class="messages" id="messages">
+            <!-- 聊天消息将显示在这里 -->
+        </div>
+        <div class="input-area">
+            <input type="text" id="usernameInput" placeholder="你的名字" maxlength="10">
+            <input type="text" id="messageInput" placeholder="输入消息..." disabled>
+            <button id="sendButton" disabled>发送</button>
+        </div>
+    </div>
+
+    <script>
+        const usernameInput = document.getElementById('usernameInput');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const messagesDiv = document.getElementById('messages');
+
+        let username = ''; // 用户名
+
+        // WebSocket 连接
+        let ws;
+
+        // 首次加载或断开后重新连接
+        function connectWebSocket() {
+            // 尝试连接 WebSocket 服务器
+            // 注意：如果服务器运行在不同的 IP/端口，需要修改 'ws://localhost:8080'
+            ws = new WebSocket('ws://localhost:8080');
+
+            ws.onopen = () => {
+                console.log('WebSocket 连接成功！');
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messagesDiv.innerHTML += '<p class="system-message">已连接到聊天室。</p>';
+                messageInput.focus();
+            };
+
+            ws.onmessage = event => {
+                const message = event.data; // 收到的消息数据
+                console.log('收到服务器消息:', message);
+                
+                const p = document.createElement('p');
+                p.textContent = message;
+                messagesDiv.appendChild(p);
+
+                // 滚动到最新消息
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket 连接已关闭。');
+                messageInput.disabled = true;
+                sendButton.disabled = true;
+                messagesDiv.innerHTML += '<p class="system-message">连接已断开，请刷新页面尝试重连。</p>';
+            };
+
+            ws.onerror = error => {
+                console.error('WebSocket 错误：', error);
+                messagesDiv.innerHTML += '<p class="system-message error">连接错误，请检查服务器是否运行。</p>';
+            };
+        }
+
+        // 监听用户名输入框的变化
+        usernameInput.addEventListener('change', () => {
+            if (usernameInput.value.trim() !== '') {
+                username = usernameInput.value.trim();
+                usernameInput.disabled = true; // 用户名确定后禁用输入框
+                // 如果是首次输入用户名，尝试连接 WebSocket
+                if (!ws || ws.readyState === WebSocket.CLOSED) {
+                    connectWebSocket();
+                }
+            }
+        });
+
+
+        // 发送消息函数
+        function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (messageText && username) {
+                const fullMessage = `${username}: ${messageText}`;
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(fullMessage); // 通过 WebSocket 发送消息
+                    messageInput.value = ''; // 清空输入框
+                } else {
+                    console.warn('WebSocket 未连接或已关闭，无法发送消息。');
+                    messagesDiv.innerHTML += '<p class="system-message error">消息发送失败：未连接到服务器。</p>';
+                }
+            } else if (!username) {
+                alert('请输入你的名字！');
+                usernameInput.focus();
+            }
+        }
+
+        // 监听发送按钮点击
+        sendButton.addEventListener('click', sendMessage);
+
+        // 监听消息输入框的回车键
+        messageInput.addEventListener('keypress', event => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 页面加载时，不立即连接，等待用户输入名字
+        // messagesDiv.innerHTML += '<p class="system-message">请输入你的名字以加入聊天。</p>';
+
+    </script>
+</body>
+</html>
